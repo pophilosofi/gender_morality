@@ -1,0 +1,505 @@
+---
+title: 'POL40950: Research Paper'
+author: "SOFIA QUAGLIA"
+date: 'Deadline: 20th December 2021'
+output:
+  html_document: default
+  pdf_document: default
+subtitle: Cognitive difference between males and females in morality
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# run the following lines only once in your CONSOLE
+# install.packages("ggeffects)
+# install.packages("tidyverse")
+# install.packages("texreg")
+# install.packages("infer")
+# install.packages("data.table")
+
+
+library(tidyverse)
+library(texreg)
+library(ggeffects)
+library(infer)
+library(dplyr)
+library(data.table)
+
+
+# Omitting NA values, reading in 2 million entries into a data frame from csv, selecting the 7 columns we need, consolidates them to one entry. This practically gives us a list of unique users who completed the survey.   
+gender_morality_survey <- 
+  na.omit(fread("SharedResponsesSurvey.csv",na.strings=c("", "NA"), nrows = 2000000, data.table = FALSE)) %>%
+  select(UserID, Review_age, Review_education, Review_gender, Review_income, Review_political, Review_religious) %>%
+  group_by(UserID)  %>% summarise_each(funs(max)) 
+
+# omitting na value from first full session surveys, selecting and reading in 2 millions entries of those sessions
+gender_morality_first_completed <- na.omit(fread("SharedResponsesFullFirstSessions.csv",na.strings=c("", "NA"), nrows = 2000000, data.table = FALSE))
+
+# joining the two data frames on user ID. Resulting in a list of answers from unique users that completed the survey. 
+joint_survey <- inner_join(gender_morality_first_completed, 
+                 gender_morality_survey,
+                 by = c("UserID")) 
+
+
+# filtering just for the first answers 
+first_answer_per_user <- filter(joint_survey, ScenarioOrder == 1)
+
+############################################
+
+# counting male and female responses 
+
+kantian_utilitarian_split <- first_answer_per_user %>% 
+  group_by(Review_gender)%>%
+  summarise(Total = sum(!is.na(Review_gender)), Utilitarian = sum(Saved == 1) , Kantian =  sum(Saved == 0)) %>%
+  mutate(Kantian_prop = Kantian / Total, Utilitarian_prop = Utilitarian / Total) 
+
+# age clean up and conversion to numbers
+first_answer_per_user$Review_age <- as.numeric(as.character(first_answer_per_user$Review_age)) 
+
+first_answer_per_user <- first_answer_per_user %>%
+  filter(between(Review_age, 6, 122))
+
+# income recode to avg num and convert to numeric
+
+first_answer_per_user$Review_income <- recode(first_answer_per_user$Review_income, "under5000"="2500")
+first_answer_per_user$Review_income <- recode(first_answer_per_user$Review_income, "over10000"="15000")
+first_answer_per_user$Review_income <- recode(first_answer_per_user$Review_income, "above100000"="150000")
+first_answer_per_user$Review_income <- recode(first_answer_per_user$Review_income, "default"="0")
+
+first_answer_per_user$Review_income <- as.numeric(as.character(first_answer_per_user$Review_income)) 
+
+# education recode to avg num and convert to numeric
+
+first_answer_per_user$Review_education <- recode(first_answer_per_user$Review_education, "default"="0")
+first_answer_per_user$Review_education <- recode(first_answer_per_user$Review_education, "bachelor"="1")
+first_answer_per_user$Review_education <- recode(first_answer_per_user$Review_education, "college"="2")
+first_answer_per_user$Review_education <- recode(first_answer_per_user$Review_education, "graduate"="3")
+first_answer_per_user$Review_education <- recode(first_answer_per_user$Review_education, "high"="4")
+first_answer_per_user$Review_education <- recode(first_answer_per_user$Review_education, "others"="5")
+first_answer_per_user$Review_education <- recode(first_answer_per_user$Review_education, "underHigh"="6")
+first_answer_per_user$Review_education <- recode(first_answer_per_user$Review_education, "vocational"="7")
+                                                  
+first_answer_per_user$Review_education <- as.numeric(as.character(first_answer_per_user$Review_education)) 
+
+first_answer_per_user <- filter(first_answer_per_user, Review_gender != "others" )
+
+
+```
+
+### 1.	Introduction and Research Question
+
+The fact that females and males have in the past, and continue to be treated heterogeneously in society is common knowledge. In the last decade there has been a massive shift in perspective and as more and more women started to speak up for themselves and  gender inequalities, i.e., wealth gap, education gap, are becoming more apparent and acknowledged. 
+
+For instance, the gender gap in Political Empowerment remains the largest of the four gaps tracked by the Global Gender Gap Report 2021 (World Economic Forum, 2021). Across the 156 countries covered by the index, women represent only 26.1% of some 35,500 parliament seats and just 22.6% of over 3,400 ministers worldwide. In 81 countries, there has never been a female head of state, as of 15th January 2021. At the current rate of progress, the World Economic Forum estimates that it will take 145.5 years to attain gender parity in politics (World Economic Forum, 2021).
+
+The question is naturally raised, why males and females are culturally perceived so differently? Is it possible that the variety of global gender gaps is actually given by a biological cognitive difference between males and females?
+
+This paper investigates whether or not males and females have biological differences that imply different cognitive and moral behavior. The two main hypotheses are:
+
+-	Biological sex does not influence moral style nor moral choice.
+-	There is no difference in the demographic characteristics influence moral choice for males and females.
+
+The expectation is not to find any noteworthy discrepancy in the moral and cognitive behavior of the two sexes. If there are differences, they may be traced back to the gender rather than the sex, which entails a biological difference. The possible variances given by the different gender; hence a social construct (Aartsen, Martin & Zimprich, 2003), is not studied in the present paper, nor the distinct cultural clusters (Luft, 2020).
+
+### 2.	Theory and expectations
+
+#### 2.1 Theories behind cognitive differences between sexes 
+
+There are several studies (i.e., Lawrence Kohlberg, Carol Gilligan) surrounding the topic of the cognitive difference between males and females in morality, regarding processes and decision making. These differences seem to be related to biology, therefore is a consequence of nature rather than nurture (Gilligan et al., 1988, Kimura et al., 1994, Weiss et al., 2003). 
+
+Kohlberg (1977) develops a model where there are different levels of morality. These levels increase from the most self-centred type of morality to the mutual respect as a universal principle.
+
+Kohlberg believes that females lie on the third stage of his system whereas males are more often found at stage four. For Kohlberg females are carers and are more sensitive to the needs of others which he considers this a deficiency. He developed two different morality systems one for males and one for females; only the males, for Kohlberg, can make inferences and reasoning that allow them to reach the highest levels of morality (Kohlberg and Hersh, 1977, Moser, 2005).
+
+Carol Gilligan (1977) believes that males and females tend to reason differently about moral matters. Males tend to focus on abstract rules and their principles of justice are superior. It is instead a tendency of females to put more emphasis on care for others which is often a more reliable guide to moral decision making (Gilligan, 1977,Gilligan and Attanucci, 1988, Moser, 2005). 
+
+The assumption is that these kinds of differences are based on stereotypes and a bias known as confirmation bias. In confirmation bias one would have a hypothesis and a dataset to prove or disprove said hypothesis, one would then only look at the dataset in a biased way to confirm their hypothesis. The bias usually lies in the point of view of those who analyses them (usually a male) (Moser, 2005).
+
+#### 2.2 How individual variations are regarded as in the Moral Machine experiment 
+
+In the Moral Machine experiment (Awad et al., 2018), researchers wanted to investigate the expectations of how an autonomous vehicle should behave. Overall, there are three types of findings that were analysed: global preferences, individual variations, and cultural clusters.
+
+Regarding the global preferences they find that “the strongest preferences are observed for sparing humans over animals, sparing more lives and spearing young lives” (Awad et al., 2018, p. 60). 
+The study on global clusters allowed to identify three distinguishable moral clusters of countries out of 130 selected countries: the western, the eastern and the southern cluster. These cluster put together territories where moral preferences converge, and the results show that there are poignant differences in morality choices that should be considered. (Awad et al., 2018).
+
+Finally, individual variations are evaluated from the responses given by the optional demographic survey important to see weather or not age, education, gender, income, and political and religious views have an influence on moral preferences. It was shown that gender and religion are dominant factors: as a matter-of-fact male respondents are 0.06% less inclined to spare females and religious people are 0.09% more inclined to spare humans.
+
+Nevertheless, it stands out that none of the six tested attributes splits the population in opposite sides, the preference is comprehensively unilateral, hence both males and females have a preference for saving females, yet females are 0.06% more inclined to do it. (Awad et al., 2018). 
+
+Generally, the individual variations cannot be considered as worthy of regard when it comes to policy making and theoretical investigation. Hence, it seems that females and males would have the same moral standards when it comes to the expectations of the decision-making process of an autonomous vehicle. 
+
+### 3.	Methodology 
+
+#### 3.1	Overview of the moral machine experiment 
+
+For the present course paper’s research, I used the dataset stemming from “The moral machine experiment”   (Awad et al., 2018). 
+
+The Moral Machine, a multilingual online ‘serious game’ for collecting large-scale data on how citizens would want autonomous vehicles to solve moral dilemmas in the context of unavoidable accidents. A total 39.61 million decisions from 233 countries, dependencies, or territories. In the main interface of the Moral Machine, users are shown unavoidable accident scenarios with two possible outcomes, depending on whether the autonomous vehicle swerves or stays on course. They then click on the outcome that they find preferable.
+
+Adding to this, accident scenarios are generated by the Moral Machine following an exploration strategy that focuses on nine factors: sparing humans (versus pets), staying on course (versus swerving), sparing passengers (versus pedestrians), sparing more lives (versus fewer lives), sparing men (versus women), sparing the young (versus the elderly), sparing pedestrians who cross legally (versus jaywalking), sparing the fit (versus the less fit), and sparing those with higher social status (versus lower social status). Additional characters were included in some scenarios (for example, criminals, pregnant women, or doctors), who were not linked to any of these nine factors. These characters mostly served to make scenarios less repetitive for the users.
+
+After completing a 13-accident session, participants could complete a survey that collected, among other variables, demographic information such as gender, age, income, and education, as well as religious and political attitudes. Participants were geolocated so that their coordinates could be used in a clustering analysis that sought to identify groups of countries or territories with homogeneous vectors of moral preferences. 
+
+#### 3.2	Description of the dataset used in the research
+
+First of all, from the main dataset shared responses survey, NA values were omitted and read into the 2 million entries dataset that I imported from the csv file, then the seven needed columns were selected, and consolidated into only one entry. This gives a list of unique users who completed the survey. After that, the same was done with Shared Responses Full First Sessions: NA values were omitted, and 2 million entries of those sessions were selected and read. Then the two cleaned data frames were joined on user ID. Resulting in a list of answers from unique users that completed the survey. Finally, from the joint dataset only the first answers were filtered. 
+
+First answer per user is the final dataset that is going to be wrangled and used for the linear regression. It has a total of 11,123 entries and 27 total columns. The unit of analysis of the First answer per user dataset is: all the first answers of every single user that took the compulsory (the moral preference one) and the optional demographic survey only for the first time.
+
+The goal of the linear regression that will be run, is to explain the variation and relation between the moral style (i.e., variable Saved), the gender (male/female) as well as income and education. Will the dependent variable moral style (stay/swerve) variate (or not) as a result of the influence of our independent variables, for example, the gender (male/female)?
+
+The linear regression analysis is applied to quantify the strength of the relationship between the moral style response and the independent variables, and if there is any linear relationship at all, or which one between the independent variables may contain repetitive information. 
+
+
+#### 3.3 Dependent and independent variables 
+
+In order to study whether or not there are moral differences between biological sexes, and if there are, understanding what the discrepancy spawns from, a regression analysis will be run.
+
+There are a total of four different regression models. The dependent variable is always going to be “Saved”, which is the variable that indicates the moral style chosen and contained in the optional demographic survey. Whereas the independent control variables are going to be the six different demographics factors: gender, income, education, age, political views and religious nature.
+
+Especially the relationship between the moral style, gender, politcal views, and religious nature will be studied. 
+
+The dependent variable “Saved”, as was said, indicates the moral style of an individual, specifically it indicates whether or not the person decided to swerve the car or not: if the car was not swerved there was no intervention, whereas if the car swerved there was intervention. 
+
+From a philosophical perspective, intervening or not has a massive importance of one's accountability’s, conditions, and dynamics. 
+
+Non-intervention is going to be considered a Kantian perspective, where taking the decision of killing somebody instead of someone else would make the driver, i.e., the automated vehicle, accountable (Zoshak and Dew, 2021). 
+
+On the other hand, in such a context, intervening means to decide that it is better to kill a group of people, over  another. Here comes into play all the attributes such as social prestige as categories of people to kill or spare. If non-intervention can be considered a Kantian approach, intervention can be considered a utilitarian one, as the decision of choosing a category of people instead of another one is guided by the principle of utility: actions are right in so far as they promote happiness or pleasure and  wrong in so far as they tend to produce unhappiness or pain (Zoshak and Dew, 2021).
+
+This research paper sets out to see if there are different approaches, i.e., Kantian or Utilitarian, between males and females. If there are, it cannot be said that they are biological as it is not proved by any kind of data. These discrepancies could be reconstructed to be a result of nurturing differences (cultural) and in this paper it will be investigated which differences there are. It remains that this is not a good way to differentiate males from females, in fact it is stipulated in a linear model that goes from neurosciences to morality. On the contrary, if there are no differences this pivotal hypothesis in neuroscience will instead be disputed. 
+  
+It expected that this data is not of an accurate type because is not possible to draw a linear relationship between biology and the results of this test. The environmental influences must be considered and what would be furthermore interesting to the study instead is to analyse the relationship between morals and gender since gender is a social construction (therefore when we talk gender nurture is already included in the research) (Cowan et al., 1969, but also Luft, 2020). This also indicates the need of more accurate surveys that consider gender and not only biological sex.
+
+### 4.	Results 
+
+#### 4.1	Descriptive Statistics:  analysing the demographics of the dataset 
+
+ In the used dataset there is a total of 2890 female first responses and 7936 male first responses. As it is shown in Table 1, the age average for male is twenty-five years old, whereas the female one is twenty-one. In regard to education male and female are both around the value 3, which in the conversion means graduate, female is a 3.4 versus a 3.1 for male, meaning that female is slightly more educated than male. What is striking, but not surprising is the different average income: male is around 26,000, female is around 15,000.   
+
+###### Table 1. Means of the Demographics
+```{r echo=FALSE}
+
+
+
+mean_review_gender <- first_answer_per_user %>% 
+  group_by(Review_gender) %>%
+  summarise(mean_Age = mean(Review_age),
+            mean_Income = mean(Review_income),
+            mean_Education = mean(Review_education),
+            mean_Political = mean(Review_political),
+            mean_Religious = mean(Review_religious)
+            )%>%
+  ungroup()
+
+mean_review_gender <- filter(mean_review_gender, Review_gender == "male" | Review_gender == "female")
+
+mean_review_gender
+
+```
+
+###### Figure 1.  Gender and Average Income
+```{r echo=FALSE}
+
+
+sd_review_gender <- first_answer_per_user %>% 
+  group_by(Review_gender) %>%
+  summarise(sd_Age = sd(Review_age),
+            sd_Income = sd(Review_income),
+            sd_Education = sd(Review_education),
+            sd_Political = sd(Review_political),
+            sd_Religious = sd(Review_religious)
+  )%>%
+  ungroup()
+
+sd_review_gender <- filter(sd_review_gender, Review_gender == "male" | Review_gender == "female")
+
+sd_and_mean <- left_join(mean_review_gender, 
+                           sd_review_gender,
+                           by = c("Review_gender")) 
+
+ggplot(sd_and_mean, aes(x=Review_gender, y=mean_Income)) + labs(y = "Average Income", x = "Gender") +
+  geom_bar(position=position_dodge(), stat="identity",
+           colour='black') +
+  geom_errorbar(aes(ymin=mean_Income-sd_Income, ymax=mean_Income+sd_Income), width=.2)
+```
+
+###### Figure 2. Gender and Average Education
+```{r echo=FALSE}
+
+
+ggplot(sd_and_mean, aes(x=Review_gender, y=mean_Education)) + labs(y = "Average Education", x = "Gender") +
+  geom_bar(position=position_dodge(), stat="identity",
+           colour='black') +
+  geom_errorbar(aes(ymin=mean_Education-sd_Education, ymax=mean_Education+sd_Education), width=.2)
+```
+
+Figure 1 and Figure 2 show the mean of income and education in relation to the gender, however they also layout how the data is spread out from the mean. The standard deviation is the measurement of the average distance between each quantity and mean. As it is shown in the figures there is a fairly large standard deviation, meaning that the values in the data set are farther away from the mean.
+
+As for income, female in the demographics can take up to 45.000, or slightly less than the mean, male’s income goes up to 70.000. It can be said that still male’s income stays higher than the females’ one. As for education, both female and male in the demographics can reach higher levels of educations, yet the relation stays the same, female is slightly more educated than male. In Table 2 all the standard deviations of the different demographic’s variable are shown divided by gender. 
+
+
+###### Table 2. Standard Deviation of the Demographics
+```{r echo=FALSE}
+
+
+sd_review_gender <- first_answer_per_user %>% 
+  group_by(Review_gender) %>%
+  summarise(sd_Age = sd(Review_age),
+            sd_Income = sd(Review_income),
+            sd_Education = sd(Review_education),
+            sd_Political = sd(Review_political),
+            sd_Religious = sd(Review_religious)
+  )%>%
+  ungroup()
+
+sd_review_gender <- filter(sd_review_gender, Review_gender == "male" | Review_gender == "female")
+
+sd_review_gender
+```
+
+In Figure 3 is shown the relationship between being religious and being political, always divided by sex and gender.For both males and females it shows a downward trend, meaning that both males and females tend to be less religious when more political and vice versa. Nevertheless, female tend to be slightly more religious than males.
+
+###### Figure 3. Relationship between Political and Religious Sentiment
+```{r echo=FALSE}
+
+
+ggplot(data = first_answer_per_user, mapping = aes(x = Review_political, y = Review_religious)) + geom_point(size = 1, alpha = 0.8) + geom_smooth(method = "lm") + labs(x = "Political Views", y = "Relgious Views") + facet_wrap(~ Review_gender)
+```
+
+The proportion of female that took a Kantian moral style (i.e., non-intervention) is 0.5141869 versus 0.5369204 for the male, whereas the utilitarian split is 0.4858131 for female versus 0.4630796. This proportions already show that male and female have the tendency to choose the same kind of moral style, they are both around the 0.5 for not intervening and 0.4 for intervention. It also shows that the non-intervention is a slightly more common choice than the intervention one. Figure 4 shows the Kantian and Utilitarian split by gender. As it was already pointed out in the overview of the data, male and female have in proportion the same moral styles.
+
+###### Figure 4. Relation between Gender and Moral Style
+```{r echo=FALSE}
+
+kantian_utilitarian_split_tall <- kantian_utilitarian_split %>% gather(key = Kantian, value = Value, Kantian:Utilitarian)
+
+ggplot(kantian_utilitarian_split_tall, aes(Kantian, Value, fill = Review_gender)) + geom_col(position = "dodge") + labs(x = "Philosophy", y = "Count")
+```
+
+Finally, how does the demographic entail the present study? As stated, before the goal of this research is to investigate whether or not male and female have biological differences that imply a different moral behavior. As a matter of fact, the central tendencies, and the measurement of dispersion of the dataset prove one of the two hypotheses: there is not significant difference between the answers given by males or females.
+
+#### 4.2	Regressions Analysis and Graphs 
+
+##### 4.2.1 Binary Logical Regression Analysis
+
+After exploring the demographic of the dataset, to accurately measure the strength of the relationship between the independent variables and the dependent variable a Binary Logical Regression Analysis was performed. 
+
+Such a regression model is performed since the dependent variable ("Saved") used is a categorical binary variable. In fact its a variable that can take only two fixed possible values. The regression model is run for the purposes of explanation in determining the significance of the relation and possibly identifying any casual relationship between the moral style (which is the "Saved" variables) and the gender (review gender). Specifically the Binary Logistical Regression measures how changes in the independent variable are associated with changes in the probability of an event occurring in this particular case, changes in gender which was filtered down to males or females, causing variations in the probability of the chosen morality style (McConville, 2020).
+
+###### Table 3. Regression Table on the relationship between morality style and demographics
+```{r echo=FALSE, results = "asis"}
+## Saved and Review Gender 
+
+lm1 <- glm(Saved ~ Review_gender, family = binomial(link = "logit"), first_answer_per_user)
+
+
+## Saved and all the other independent variables
+
+lm2 <- glm(Saved ~ Review_gender + Review_income + Review_education + Review_age + Review_political + Review_religious, family = binomial(link = "logit"), first_answer_per_user)
+
+
+### 
+
+lm3 <- glm(Saved ~ Review_gender + Review_income + Review_education + Review_age + Review_political + Review_religious + (Review_political * Review_gender),  family = binomial(link = "logit"), first_answer_per_user)
+
+
+####
+
+lm4 <- glm(Saved ~ Review_gender + Review_income + Review_education + Review_age + Review_political + Review_religious + (Review_religious * Review_gender),  family = binomial(link = "logit"), first_answer_per_user)
+
+
+
+# regtext 
+
+htmlreg(list(lm1, lm2, lm3, lm4), caption = "Interaction between morality style and other demographic factors",
+        
+        custom.coef.names = c("Intercept", 
+                              "Gender female", 
+                              "Gender male", 
+                              "Income", 
+                              "Education", 
+                              "Age", 
+                              "Political", 
+                              "Religious", 
+                              "Political * Gender Female",
+                              "Political * Gender Male",
+                              "Religious * Gender Female",
+                              "Religious * Gender Male"
+
+        ))
+
+```
+
+As shown in Table 3 the first binary logistical regression model, Model 1, is between the dependent variable Saved which quantifies the chosen moral style, whether it is Utilitarian or Kantian, and the gender. The regression coefficient for sex male is -0.07, whereas for sex female is 0.02. The regression coefficient provides the expected change in the dependent variable (here: Saved hence moral style) for a one-unit increase in the independent variable. A positive coefficient indicates a positive relationship, which means that when the independent variable increases, the dependent variable increases and vice versa, when the dependent variable decreases as the independent variable decreases. 
+
+In the present case, sex female has a 0.02 regression coefficient, a positive one, yet the increase is going to be very little. On the other hand, a negative coefficient indicates a negative relationship, the regression coefficient for sex male is negative as it is in fact – 0.07, this means that if the independent variable increases, the dependent variable decreases and the opposite so when the dependent variable increases as the independent variable decreases. The standard error is very low in both cases. 
+
+The regression coefficients are very low in these cases which indicates that the association between the dependent and independent variables or in other words, moral style and gender is very weak e.g. with a significance level of 0.02 in female indicates a 2% risk of concluding that an association exists when there is no actual association which is statistically insignificant.
+
+Model 2, also printed in Table 3 is a multiple regression conducted to understand the interaction between the dependent variable “Saved” and the independent variables: gender, income, education, age, political, and religious. The regression coefficients are: 0.00 for income, 0.02 with <0.001 of statistical significance for education, 0.00 for age, –0.0 for politics and 0.05 for religion. For income, education, age, and religion there is a positive relationship implying that if these independent variables increase, the dependent variable “Saved” increases and vice versa. For politics the relationship with the dependent variable is negative: when the variable politics increases, “Saved” decreases and “Saved” increases as politics decreases. 
+
+Interestingly enough the additional independent variables seem to have little to no significance in the association between themselves and morality.
+
+Model 3 and Model 4 are multiple regression models with interaction effects, they are both displayed in Figure 3. Interaction effects occur when the effect of one variable depends on the value of another variable. Starting from Model 3, the interaction coefficient between gender/sex and political leaning is negative (- 0.44) for female and (-0.56) for male, both for female and male, the standard error is quite high.
+
+This indicates that given a persons political leaning, can heavily influence their morality choices. However, the difference between male and female is 0.12 which again is a low percentage, indicating that it is a persons political leaning and not their gender that is influencing their moral choices (which is an expected hypothesis). 
+
+All of this can be observed in Figure 4 below:
+
+###### Figure 4. Interaction Effect Political leaning and gender saved percentage 
+```{r echo=FALSE}
+
+
+
+model_3 <- ggpredict(lm3, terms = c("Review_political", "Review_gender"))
+plot(model_3, colors = "bw") +
+  labs(x = "Political Leaning", y = "Gender Saved Percentage", title = "Political Leaning - Gender", linetype = "")
+
+```
+
+In Model 4, the interaction coefficient between religious views and sex is negative (- 0.03) for female and positive (0.18) for male. The standard error is low. 
+
+The takeaways from this is that religion seems to be more significant to the morality choices of females than males in this instance and in fact it plays a larger part in separating the morals of the two genders (although still not significant enough of note). As well as this it can be said that overall Politics plays a bigger role in the differences in morality choices than religion does which again in today's current society is a very expected hypothesis to suggest. 
+
+This can be observed in Figure 5 below:
+
+###### Figure 5. Interaction Effect Religious leaning and gender saved percentage
+```{r echo=FALSE, warning=FALSE}
+
+
+model_4 <- ggpredict(lm4, terms = c("Review_religious", "Review_gender"))
+plot(model_4, colors = "bw") +
+  labs(x = "Religious Leaning", y = "Gender Saved Percentage", title = "Religious Leaning - Gender", linetype = "")
+
+```
+
+
+In all four regression models it can be seen how all the relations between the dependent variable “Saved” and the independent variables are relatively the same for female and male. As a matter of fact, there is not a strong relation between biological sex and moral style. The same can be said for all the other independent variables: age, income, education, political sentiment and religion. 
+
+#### 4.3 Regression Diagnostics 
+
+In order conduct a regression diagnostics on the four binary logistical regression the following factors will be tested: homoscedasticity or heteroscedasticity and collinearity or multicollinearity.
+
+The expectation is not to find the most part of these criteria since they are studied on linear regression and the four regression models in the present research are binary logistical regressions since the dependent variable in every single one of them is a categorical binary variable.
+
+##### 4.3.1 Regression Diagnostics Model 1 & Model 2
+
+Model 1 and Model 2 present no outliers: there is no observed value very different from that predicted from the regression model. At the same time in both models there is no leverage point, since there is no observation with values distant from the mean. 
+
+When tested for heteroscedasticity or homoscedasticity it can be noticed that both models present homoscedasticity. In fact heteroscedasticity refers to the circumstance in which the variability of a variable is unequal across the range of values of a second variable that predicts it. Whereas homoscedasticity indicates that the dependent variable variability is equal across values of the independent variables. 
+
+Given that collinearity is a linear association between two variables that have to be in a exact linear relationship between them, it can be said that there is no collinearity in Model 1. Also in Model 2 there seems to be no multicollinearity, in fact there are no two variables (or more) that are highly linearly related. 
+
+The Breusch-Pagan test returns a P value well above the level of statistical significance. The considered threshold of statistical significance it is 0.05 and this means that there is no difference between sexes when it comes to moral style choices, this was tested both Model 1 and Model 2 which also means that the rest of the demographics do not play a different interaction on morality when it comes to different sex.
+
+```{r echo=FALSE}
+
+lmtest::bptest(lm1)
+lmtest::bptest(lm2)
+
+
+```
+
+##### 4.3.2 Regression Diagnostics Model 3 & Model 4
+
+Also for Model 3 and Model 4 was run a binary logistical regression, which means that due to the nature of the data the possible linear relations are missing and therefore both models do not present multicollinearity but they do present homoscedasticity, hence there are not outliers and leverage point.
+
+Also in this case, the Breusch-Pagan test returns a P value well above the level of statistical significance, reiterating that there is no difference between males and females when it comes to morality put in relationship with political sentiment and religious belief. 
+
+
+
+###### Figure 6. Testing for Homoscedasticity Model 3
+```{r echo=FALSE}
+
+### homoscedasticity
+
+ggplot(lm3, aes(.fitted, .resid)) + geom_point() + geom_hline(yintercept = 0) + geom_smooth(se = FALSE)
+
+lmtest::bptest(lm3)
+
+# using built in base r function
+
+plot(lm3, which = 1)
+
+
+```
+
+###### Figure 7. Testing for Homoscedasticity Model 4
+```{r echo=FALSE}
+
+### homoscedasticity
+
+ggplot(lm4, aes(.fitted, .resid)) + geom_point() + geom_hline(yintercept = 0) + geom_smooth(se = FALSE)
+lmtest::bptest(lm4)
+
+# using built in base r function
+
+plot(lm4, which = 1)
+```
+
+
+```{r echo=FALSE}
+
+
+# Multicollinearity
+
+car::vif(lm3)
+
+car::vif(lm4)
+
+
+```
+
+
+### 5. Conclusion
+
+Finally, this paper set out to find if there were cognitive differences between males and females. It started by analyzing the theory in neurosciences and philosophy and then it preceded on to testing the two hypothesis. The first hypothesis was that biological sex does not influence moral style nor moral choice, and the second that there is no difference in how demographical characteristics influence moral choice for male and female.
+
+Working with the "Moral Machine experiment" dataset was at first challenging but in the end extremely rewarding. The dataset presented most part of the variables in qualitative term instead of quantitative (i.e., numbers). Therefore all the variables had to be converted in order to be used. The research was run on the demographical factors and not specifically on the moral choices because these were not reported in any of the available datasets as variables, in fact it would have taken weeks to create them and the efforts would have exceeded the goal of the present research paper. Perhaps, this could be a starting point for a next and more prolific research. Nevertheless, the moral choices of the demographics were simplified as "Moral style", they could be Kantian, if there was not intervention, or utilitarian if there was. Such procedural decision was taken on the premises of philosophical theories.    
+
+Finally, the two hypothesis were presented and argumented. The binary logistical regressions presented above, show that there is no difference between female and male morality style, thus proving the first hypothesis.  
+
+Adding to that, the interaction effect between the dependent variable (morality style) and the independent variables is for the most part, exactly the same for male and female, with a note that there were some independent variables that did have some sort of difference between males and females i.e., religious views. However, the difference was too small to be statistically significant. 
+
+There was also evidence that political stance in fact did have an impact on a person's morality. This had a statistically significant effect but nevertheless it did not variate between the two sexes. This could be put down to the different political ideologies across countries. This also differs from religious views as most religious views share fundamental sentiments whereas political ideologies do not. After all it can be said that the second hypothesis was partially proven with more investigation to be conducted into the influence of political views on moral style choices. 
+
+It was noted that with the types of variables that this dataset constituted of a ordinal logistical regression should have been used. This is because of the nature of the chosen dependent and independent variables of the dataset. As ordinal variables are fixed to three or more fixed values that do not have a given order. 
+
+Additionally, the test for heteroscedasticity and homoscedasticity results in a straight line since in a binary logistical regression there can only be two possible values, for example yes or no, true or false. Nevertheless it was decided to leave those graphs in the paper since they are a part of the regression diagnostics. In the future, instead of checking for heteroscedasticity and homoscedasticity a Box-Tidwell procedure would be used instead to test for linearity the results would be interpreted from the output of this test with diagnostics being run on them as well.  
+
+### 6.	Bibliography 
+
+Aartsen, M.J., Martin, M. and Zimprich, D. (2003). Gender Differences in Level and Change in Cognitive Functioning. Gerontology, 50(1), pp.35–38.
+
+Awad, E., Dsouza, S., Kim, R., Schulz, J., Henrich, J., Shariff, A., Bonnefon, J.-F. and Rahwan, I. (2018). The Moral Machine experiment. Nature, [online] 563(7729), pp.59–64. Available at: https://www.nature.com/articles/s41586-018-0637-6.
+
+Cowan, P.A., Longer, J., Heavenrich, J. and Nathanson, M. (1969). Social learning and Piaget’s cognitive theory of moral development. Journal of Personality and Social Psychology, 11(3), pp.261–274.
+
+Cushman, F. and Young, L. (2009). The Psychology of Dilemmas and the Philosophy of Morality. Ethical Theory and Moral Practice, 12(1), pp.9–24.
+
+Gilligan, C. (1977). In a Different Voice: Women’s Conceptions of Self and of Morality. Harvard Educational Review, [online] 47(4), pp.481–517. Available at: http://sfonline.barnard.edu/sfxxx/documents/gilligan.pdf.
+
+Gilligan, C. and Attanucci, J. (1988). Two Moral Orientations: Gender Differences and Similarities. Merrill-Palmer Quarterly, [online] 34(3), pp.223–237. Available at: https://www.jstor.org/stable/23086381?seq=1#metadata_info_tab_contents.
+
+Kimura, D. and Hampson, E. (1994). Cognitive Pattern in Men and Women Is Influenced by Fluctuations in Sex Hormones. Current Directions in Psychological Science, 3(2), pp.57–61.
+
+Kohlberg, L. (1978). Revisions in the theory and practice of moral development. New Directions for Child and Adolescent Development, 1978(2), pp.83–87.
+
+Kohlberg, L. and Hersh, R.H. (1977). Moral development: A review of the theory. Theory Into Practice, 16(2), pp.53–59.
+
+Luft, A. (2020). Theorizing Moral Cognition: Culture in Action, Situations, and Relationships. Socius: Sociological Research for a Dynamic World, 6, p.237802312091612.
+
+McConville, C.I. and A.Y.K.F. by K.S. (2020). Statistical Inference via Data Science. [online] moderndive.com. Available at: https://moderndive.com/ [Accessed 17 Dec. 2021].
+
+Moser, P.K. (2005). The Oxford Handbook of Epistemology. Oxford University Press.
+
+Weiss, E.M., Kemmler, G., Deisenhammer, E.A., Fleischhacker, W.Wolfgang. and Delazer, M. (2003). Sex differences in cognitive functions. Personality and Individual Differences, 35(4), pp.863–875.
+
+World Economic Forum (2021). Global Gender Gap Report 2021. [online] World Economic Forum. Available at: https://www.weforum.org/reports/global-gender-gap-report-2021.
+
+Zoshak, J. and Dew, K. (2021). Beyond Kant and Bentham: How Ethical Theories are being used in Artificial Moral Agents. Proceedings of the 2021 CHI Conference on Human Factors in Computing Systems.
